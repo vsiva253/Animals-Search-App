@@ -4,17 +4,19 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 void main() {
-  runApp(MyApp());
+  runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
-        appBarTheme: AppBarTheme(
+        appBarTheme: const AppBarTheme(
           backgroundColor: Colors.white60,
         ),
       ),
@@ -24,44 +26,60 @@ class MyApp extends StatelessWidget {
             animatedTexts: [
               TyperAnimatedText(
                 'Search Animals Here...',
-                speed: Duration(milliseconds: 100),
+                speed: const Duration(milliseconds: 100),
               ),
             ],
           ),
-          actions: [
+          actions: const [
             SearchBar(),
           ],
         ),
-        body: AnimalGrid(),
+        body: const AnimalGrid(),
       ),
     );
   }
 }
 
 class AnimalGrid extends StatefulWidget {
+  const AnimalGrid({super.key});
+
   @override
   _AnimalGridState createState() => _AnimalGridState();
 }
 
 class _AnimalGridState extends State<AnimalGrid> {
   List<Map<String, dynamic>> animals = [];
+  final ScrollController _scrollController = ScrollController();
   bool isLoading = true;
+  int start = 0;
+  int end = 15;
 
-  Future<void> fetchAnimals() async {
+  Future<void> fetchAnimals({
+    required int start,
+    required int end,
+  }) async {
     setState(() {
       isLoading = true;
     });
+    print("Fetching animals from $start to $end");
 
     final response = await http.get(
-      Uri.parse('https://animals-api-080s.onrender.com/animals'),
+      Uri.parse('https://animals-api-080s.onrender.com/animals/$start/$end'),
     );
-
     if (response.statusCode == 200) {
       final List<dynamic> jsonData = json.decode(response.body);
       final List<Map<String, dynamic>> allAnimals =
           jsonData.cast<Map<String, dynamic>>();
+      if (allAnimals.isEmpty) {
+        setState(() {
+          isLoading = false;
+          start -= 15;
+          end -= 15;
+        });
+        return;
+      }
       setState(() {
-        animals = allAnimals;
+        animals.addAll(allAnimals);
         isLoading = false;
       });
     } else {
@@ -72,7 +90,22 @@ class _AnimalGridState extends State<AnimalGrid> {
   @override
   void initState() {
     super.initState();
-    fetchAnimals();
+    fetchAnimals(
+      start: start,
+      end: end,
+    );
+    // Add scroll listener to fetch more data when user reaches the bottom of the list
+    _scrollController.addListener(() {
+      if (_scrollController.position.pixels ==
+          _scrollController.position.maxScrollExtent) {
+        start += 15;
+        end += 15;
+        fetchAnimals(
+          start: start,
+          end: end,
+        );
+      }
+    });
   }
 
   @override
@@ -80,25 +113,34 @@ class _AnimalGridState extends State<AnimalGrid> {
     return Column(
       children: [
         Expanded(
-          child: isLoading
-              ? Center(
-                  child: CircularProgressIndicator(
-                    color: Colors.blue,
-                  ),
-                )
-              : GridView.builder(
-                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 3,
-                    childAspectRatio: 0.92,
-                  ),
-                  itemCount: animals.length,
-                  itemBuilder: (BuildContext context, int index) {
-                    return AnimalCard(
-                      name: animals[index]['name'],
-                      imageUrl: animals[index]['image_url'],
-                    );
-                  },
+          child: GridView.builder(
+            controller: _scrollController,
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 3,
+              childAspectRatio: 0.92,
+            ),
+            itemCount: animals.length + 1,
+            itemBuilder: (BuildContext context, int index) {
+              if (index == animals.length) {
+                if (isLoading) {
+                  return const Center(
+                    child: CircularProgressIndicator(
+                      color: Colors.blue,
+                    ),
+                  );
+                } else {
+                  return const SizedBox();
+                }
+              }
+              return Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: AnimalCard(
+                  name: animals[index]['name'],
+                  imageUrl: animals[index]['image_url'],
                 ),
+              );
+            },
+          ),
         ),
       ],
     );
@@ -109,7 +151,7 @@ class AnimalCard extends StatelessWidget {
   final String name;
   final String imageUrl;
 
-  AnimalCard({required this.name, required this.imageUrl});
+  const AnimalCard({super.key, required this.name, required this.imageUrl});
 
   @override
   Widget build(BuildContext context) {
@@ -118,13 +160,17 @@ class AnimalCard extends StatelessWidget {
         children: [
           Image.network(
             imageUrl,
-            height: 100,
+            height: 90,
             width: double.maxFinite,
             fit: BoxFit.cover,
           ),
-          Text(
-            name,
-            style: TextStyle(fontSize: 12, fontFamily: 'lato'),
+          const SizedBox(height: 8.0),
+          SizedBox(
+            child: Text(
+              name,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 12, fontFamily: 'lato'),
+            ),
           ),
         ],
       ),
@@ -133,10 +179,12 @@ class AnimalCard extends StatelessWidget {
 }
 
 class SearchBar extends StatelessWidget {
+  const SearchBar({super.key});
+
   @override
   Widget build(BuildContext context) {
     return IconButton(
-      icon: Icon(Icons.search),
+      icon: const Icon(Icons.search),
       onPressed: () async {
         final result = await showSearch(
           context: context,
@@ -171,7 +219,7 @@ class AnimalSearchDelegate extends SearchDelegate<String> {
     return theme.copyWith(
       primaryColor: Colors.white,
       textTheme: theme.textTheme.copyWith(
-        titleLarge: TextStyle(
+        titleLarge: const TextStyle(
           color: Colors.black,
           fontSize: 18,
         ),
@@ -184,7 +232,7 @@ class AnimalSearchDelegate extends SearchDelegate<String> {
     return [
       if (query.isNotEmpty)
         IconButton(
-          icon: Icon(Icons.clear),
+          icon: const Icon(Icons.clear),
           onPressed: () {
             query = '';
           },
@@ -208,7 +256,7 @@ class AnimalSearchDelegate extends SearchDelegate<String> {
   @override
   Widget buildResults(BuildContext context) {
     if (query.isEmpty) {
-      return Center(
+      return const Center(
         child: Text('Enter a search query'),
       );
     } else {
@@ -217,7 +265,7 @@ class AnimalSearchDelegate extends SearchDelegate<String> {
         builder: (BuildContext context,
             AsyncSnapshot<List<Map<String, dynamic>>> snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return Center(child: CircularProgressIndicator());
+            return const Center(child: CircularProgressIndicator());
           } else if (snapshot.hasError) {
             return Center(child: Text('Error: ${snapshot.error}'));
           } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
@@ -282,21 +330,21 @@ class AnimalSearchDelegate extends SearchDelegate<String> {
             },
             hoverColor: Colors.blue[100], // Hover effect color
             child: Container(
-              padding: EdgeInsets.all(16.0),
+              padding: const EdgeInsets.all(16.0),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(10.0),
                 color: Colors.grey[200], // Background color
               ),
               child: Row(
                 children: [
-                  Icon(
+                  const Icon(
                     Icons.search,
                     color: Colors.blue, // Icon color
                   ),
-                  SizedBox(width: 16.0),
+                  const SizedBox(width: 16.0),
                   Text(
-                    'Search for ${suggestionList[index]}', // Pre-text
-                    style: TextStyle(
+                    suggestionList[index],
+                    style: const TextStyle(
                       fontSize: 16.0,
                       color: Colors.black, // Text color
                       fontWeight: FontWeight.bold,
@@ -315,20 +363,23 @@ class AnimalSearchDelegate extends SearchDelegate<String> {
 class AnimalSearchResults extends StatelessWidget {
   final List<Map<String, dynamic>> animals;
 
-  AnimalSearchResults({required this.animals});
+  const AnimalSearchResults({super.key, required this.animals});
 
   @override
   Widget build(BuildContext context) {
     return GridView.builder(
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 3,
         childAspectRatio: 0.92,
       ),
       itemCount: animals.length,
       itemBuilder: (BuildContext context, int index) {
-        return AnimalCard(
-          name: animals[index]['name'],
-          imageUrl: animals[index]['image_url'],
+        return Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: AnimalCard(
+            name: animals[index]['name'],
+            imageUrl: animals[index]['image_url'],
+          ),
         );
       },
     );
