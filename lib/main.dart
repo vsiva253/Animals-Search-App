@@ -1,20 +1,13 @@
+import 'package:animated_text_kit/animated_text_kit.dart';
 import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:flutter_hooks/flutter_hooks.dart';
-import 'package:animated_text_kit/animated_text_kit.dart';
-import 'package:flutter_spinkit/flutter_spinkit.dart';
 
 void main() {
   runApp(MyApp());
 }
 
-class MyApp extends StatefulWidget {
-  @override
-  _MyAppState createState() => _MyAppState();
-}
-
-class _MyAppState extends State<MyApp> {
+class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -45,56 +38,64 @@ class _MyAppState extends State<MyApp> {
   }
 }
 
-class AnimalGrid extends HookWidget {
+class AnimalGrid extends StatefulWidget {
+  @override
+  _AnimalGridState createState() => _AnimalGridState();
+}
+
+class _AnimalGridState extends State<AnimalGrid> {
+  List<Map<String, dynamic>> animals = [];
+  bool isLoading = true;
+
+  Future<void> fetchAnimals() async {
+    setState(() {
+      isLoading = true;
+    });
+
+    final response = await http.get(
+      Uri.parse('https://animals-api-080s.onrender.com/animals'),
+    );
+
+    if (response.statusCode == 200) {
+      final List<dynamic> jsonData = json.decode(response.body);
+      final List<Map<String, dynamic>> allAnimals =
+          jsonData.cast<Map<String, dynamic>>();
+      setState(() {
+        animals = allAnimals;
+        isLoading = false;
+      });
+    } else {
+      throw Exception('Failed to load data');
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    fetchAnimals();
+  }
+
   @override
   Widget build(BuildContext context) {
-    final searchText = useState('');
-    final animals = useState<List<Map<String, dynamic>>>([]);
-    final isLoading = useState<bool>(true);
-
-    Future<void> fetchAnimals(String search) async {
-      isLoading.value = true;
-      final response = await http
-          .get(Uri.parse('https://animals-api-080s.onrender.com/animals'));
-      if (response.statusCode == 200) {
-        final List<dynamic> jsonData = json.decode(response.body);
-        final List<Map<String, dynamic>> allAnimals =
-            jsonData.cast<Map<String, dynamic>>();
-        final filteredAnimals = allAnimals.where((animal) {
-          return animal['type'].toLowerCase().contains(search.toLowerCase());
-        }).toList();
-        animals.value = filteredAnimals;
-      } else {
-        throw Exception('Failed to load data');
-      }
-      isLoading.value = false;
-    }
-
-    useEffect(() {
-      fetchAnimals(searchText.value);
-      return null;
-    }, [searchText.value]);
-
     return Column(
       children: [
         Expanded(
-          child: isLoading.value
+          child: isLoading
               ? Center(
-                  child: SpinKitWave(
-                    color: Colors.blue, // Customize the color
-                    size: 50.0, // Customize the size
+                  child: CircularProgressIndicator(
+                    color: Colors.blue,
                   ),
                 )
               : GridView.builder(
                   gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 3,
-                    childAspectRatio: 0.92, // Adjust this for the desired aspect ratio
+                    childAspectRatio: 0.92,
                   ),
-                  itemCount: animals.value.length,
+                  itemCount: animals.length,
                   itemBuilder: (BuildContext context, int index) {
                     return AnimalCard(
-                      name: animals.value[index]['name'],
-                      imageUrl: animals.value[index]['image_url'],
+                      name: animals[index]['name'],
+                      imageUrl: animals[index]['image_url'],
                     );
                   },
                 ),
@@ -117,31 +118,34 @@ class AnimalCard extends StatelessWidget {
         children: [
           Image.network(
             imageUrl,
-            height: 100, // Adjust this for image size
-            width: 100, // Adjust this for image size
+            height: 100,
+            width: double.maxFinite,
             fit: BoxFit.cover,
           ),
-          Text(name),
+          Text(
+            name,
+            style: TextStyle(fontSize: 12, fontFamily: 'lato'),
+          ),
         ],
       ),
     );
   }
 }
 
-class SearchBar extends HookWidget {
+class SearchBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    final searchText = useState('');
-
     return IconButton(
       icon: Icon(Icons.search),
       onPressed: () async {
         final result = await showSearch(
           context: context,
-          delegate: AnimalSearchDelegate(searchText: searchText.value),
+          delegate: AnimalSearchDelegate(),
         );
+
         if (result != null) {
-          searchText.value = result;
+          // Handle the selected search result
+          print('Selected: $result');
         }
       },
     );
@@ -149,9 +153,14 @@ class SearchBar extends HookWidget {
 }
 
 class AnimalSearchDelegate extends SearchDelegate<String> {
-  final String searchText;
-
-  AnimalSearchDelegate({required this.searchText});
+  final List<String> suggestions = [
+    'dogs',
+    'dinosaurs',
+    'lions',
+    'tigers',
+    'deers',
+    'bears'
+  ];
 
   @override
   String get searchFieldLabel => 'Search by Animal Type';
@@ -198,18 +207,130 @@ class AnimalSearchDelegate extends SearchDelegate<String> {
 
   @override
   Widget buildResults(BuildContext context) {
-    // Perform filtering and display results here
-    return Center(child: Text('Search Results: $query'));
+    if (query.isEmpty) {
+      return Center(
+        child: Text('Enter a search query'),
+      );
+    } else {
+      return FutureBuilder(
+        future: fetchSearchResults(query),
+        builder: (BuildContext context,
+            AsyncSnapshot<List<Map<String, dynamic>>> snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return Center(child: CircularProgressIndicator());
+          } else if (snapshot.hasError) {
+            return Center(child: Text('Error: ${snapshot.error}'));
+          } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+            return Center(child: Text('Search results not found for: $query'));
+          } else {
+            return AnimalSearchResults(animals: snapshot.data!);
+          }
+        },
+      );
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> fetchSearchResults(
+      String searchInput) async {
+    try {
+      final response = await http.get(
+        Uri.parse(
+            'https://animals-api-080s.onrender.com/animals/type/$searchInput'),
+      );
+
+      if (response.statusCode == 200) {
+        final List<dynamic> jsonData = json.decode(response.body);
+        final List<Map<String, dynamic>> searchResults =
+            jsonData.cast<Map<String, dynamic>>();
+        return searchResults;
+      } else {
+        // Handle non-200 response gracefully
+        return [];
+      }
+    } catch (e) {
+      // Handle exceptions gracefully
+      print('Error: $e');
+      return [];
+    }
   }
 
   @override
   Widget buildSuggestions(BuildContext context) {
-    // You can implement search suggestions here
-    return Center(
-      child: Text(
-        'Type to search animals by type...',
-        style: TextStyle(fontSize: 18),
+    final suggestionList = query.isEmpty
+        ? suggestions
+        : suggestions
+            .where((animal) =>
+                animal.toLowerCase().startsWith(query.toLowerCase()))
+            .toList();
+
+    return ListView.builder(
+      itemCount: suggestionList.length,
+      itemBuilder: (BuildContext context, int index) {
+        return MouseRegion(
+          onEnter: (_) {
+            // Change cursor pointer when entering the suggestion
+            SystemMouseCursors.click;
+          },
+          onExit: (_) {
+            // Reset cursor pointer when exiting the suggestion
+            SystemMouseCursors.basic;
+          },
+          child: InkWell(
+            onTap: () {
+              query = suggestionList[index];
+              showResults(context);
+            },
+            hoverColor: Colors.blue[100], // Hover effect color
+            child: Container(
+              padding: EdgeInsets.all(16.0),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(10.0),
+                color: Colors.grey[200], // Background color
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.search,
+                    color: Colors.blue, // Icon color
+                  ),
+                  SizedBox(width: 16.0),
+                  Text(
+                    'Search for ${suggestionList[index]}', // Pre-text
+                    style: TextStyle(
+                      fontSize: 16.0,
+                      color: Colors.black, // Text color
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class AnimalSearchResults extends StatelessWidget {
+  final List<Map<String, dynamic>> animals;
+
+  AnimalSearchResults({required this.animals});
+
+  @override
+  Widget build(BuildContext context) {
+    return GridView.builder(
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 3,
+        childAspectRatio: 0.92,
       ),
+      itemCount: animals.length,
+      itemBuilder: (BuildContext context, int index) {
+        return AnimalCard(
+          name: animals[index]['name'],
+          imageUrl: animals[index]['image_url'],
+        );
+      },
     );
   }
 }
