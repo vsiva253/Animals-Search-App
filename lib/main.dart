@@ -52,7 +52,7 @@ class _AnimalGridState extends State<AnimalGrid> {
   final ScrollController _scrollController = ScrollController();
   bool isLoading = true;
   int start = 0;
-  int end = 14;
+  int end = 17;
   bool isError = false;
   bool isFirstLoad = true; // Flag to track the first load
   bool isFetching = false; // Flag to track if data is already being fetched
@@ -119,8 +119,8 @@ class _AnimalGridState extends State<AnimalGrid> {
         if (isFirstLoad) {
           isFirstLoad = false;
         }
-        start = 15;
-        end = 32;
+        start = 18;
+        end = 31;
         fetchAnimals(
           start: start,
           end: end,
