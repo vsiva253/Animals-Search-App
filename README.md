@@ -1,6 +1,4 @@
-Sure, here's an updated README.md file that includes information on how to get dependencies using `pub get` in a Flutter project:
 
-```markdown
 # Flutter Animal Search App
 
 ![Flutter](https://img.shields.io/badge/Flutter-v2.5-blue.svg)
