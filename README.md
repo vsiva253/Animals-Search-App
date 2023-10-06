@@ -100,8 +100,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 If you have any questions or feedback, feel free to reach out:
 
 - Your Name
-- Email: your.email@example.com
-- GitHub: [https://github.com/your-username](https://github.com/your-username)
-```
+- Email: sivasaireddypamulapati17@gmail.com
+- GitHub: [https://github.com/your-username](https://github.com/vsiva253)
 
-I've added a new "API" section that includes a link to your Animals API GitHub repository. This will provide users with information about the API and where to find its source code and documentation.
