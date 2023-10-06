@@ -52,38 +52,56 @@ class _AnimalGridState extends State<AnimalGrid> {
   final ScrollController _scrollController = ScrollController();
   bool isLoading = true;
   int start = 0;
-  int end = 15;
+  int end = 14;
+  bool isError = false;
+  bool isFirstLoad = true; // Flag to track the first load
+  bool isFetching = false; // Flag to track if data is already being fetched
 
   Future<void> fetchAnimals({
     required int start,
     required int end,
   }) async {
+    if (isFetching) return; // Don't fetch if data is already being fetched
     setState(() {
-      isLoading = true;
+      isFetching = true;
+      isError = false; // Reset error flag
     });
-    print("Fetching animals from $start to $end");
 
-    final response = await http.get(
-      Uri.parse('https://animals-api-080s.onrender.com/animals/$start/$end'),
-    );
-    if (response.statusCode == 200) {
-      final List<dynamic> jsonData = json.decode(response.body);
-      final List<Map<String, dynamic>> allAnimals =
-          jsonData.cast<Map<String, dynamic>>();
-      if (allAnimals.isEmpty) {
+    try {
+      print("Fetching animals from $start to $end");
+      final response = await http.get(
+        Uri.parse('https://animals-api-080s.onrender.com/animals/$start/$end'),
+      );
+
+      if (response.statusCode == 200) {
+        final List<dynamic> jsonData = json.decode(response.body);
+        final List<Map<String, dynamic>> allAnimals =
+            jsonData.cast<Map<String, dynamic>>();
+        if (allAnimals.isEmpty) {
+          setState(() {
+            isError = false; // Reset error flag
+          });
+          return;
+        }
         setState(() {
+          animals.addAll(allAnimals);
           isLoading = false;
-          start -= 15;
-          end -= 15;
+          isFetching = false; // Data fetched successfully, reset fetching flag
         });
-        return;
+      } else {
+        // Handle non-200 response
+        setState(() {
+          isError = true; // Set error flag
+          isFetching = false; // Error occurred, reset fetching flag
+        });
       }
+    } catch (e) {
+      // Handle exceptions gracefully
+      print('Error: $e');
       setState(() {
-        animals.addAll(allAnimals);
-        isLoading = false;
+        isError = true; // Set error flag
+        isFetching = false; // Error occurred, reset fetching flag
       });
-    } else {
-      throw Exception('Failed to load data');
     }
   }
 
@@ -98,8 +116,11 @@ class _AnimalGridState extends State<AnimalGrid> {
     _scrollController.addListener(() {
       if (_scrollController.position.pixels ==
           _scrollController.position.maxScrollExtent) {
-        start += 15;
-        end += 15;
+        if (isFirstLoad) {
+          isFirstLoad = false;
+        }
+        start = 15;
+        end = 32;
         fetchAnimals(
           start: start,
           end: end,
@@ -110,39 +131,43 @@ class _AnimalGridState extends State<AnimalGrid> {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Expanded(
-          child: GridView.builder(
-            controller: _scrollController,
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 3,
-              childAspectRatio: 0.92,
-            ),
-            itemCount: animals.length + 1,
-            itemBuilder: (BuildContext context, int index) {
-              if (index == animals.length) {
-                if (isLoading) {
-                  return const Center(
-                    child: CircularProgressIndicator(
-                      color: Colors.blue,
+    return Center(
+      child: isLoading
+          ? isFirstLoad
+              ? CircularProgressIndicator(
+                  color: Colors.blue,
+                )
+              : CircularProgressIndicator(
+                  color: Colors.blue,
+                  strokeWidth:
+                      2.0, // Reduce the stroke width for subsequent loads
+                )
+          : isError
+              ? const Text('Failed to load data. Please try again later.')
+              : Column(
+                  children: [
+                    Expanded(
+                      child: GridView.builder(
+                        controller: _scrollController,
+                        gridDelegate:
+                            const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 3,
+                          childAspectRatio: 0.92,
+                        ),
+                        itemCount: animals.length,
+                        itemBuilder: (BuildContext context, int index) {
+                          return Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: AnimalCard(
+                              name: animals[index]['name'],
+                              imageUrl: animals[index]['image_url'],
+                            ),
+                          );
+                        },
+                      ),
                     ),
-                  );
-                } else {
-                  return const SizedBox();
-                }
-              }
-              return Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: AnimalCard(
-                  name: animals[index]['name'],
-                  imageUrl: animals[index]['image_url'],
+                  ],
                 ),
-              );
-            },
-          ),
-        ),
-      ],
     );
   }
 }
@@ -203,7 +228,6 @@ class SearchBar extends StatelessWidget {
 class AnimalSearchDelegate extends SearchDelegate<String> {
   final List<String> suggestions = [
     'dogs',
-    'dinosaurs',
     'lions',
     'tigers',
     'deers',
@@ -342,6 +366,7 @@ class AnimalSearchDelegate extends SearchDelegate<String> {
                     color: Colors.blue, // Icon color
                   ),
                   const SizedBox(width: 16.0),
+                  Text("Search for: "),
                   Text(
                     suggestionList[index],
                     style: const TextStyle(
