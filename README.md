@@ -53,6 +53,14 @@ To run this app locally, follow these steps:
 - Scroll down to load more animal images.
 - Tap on an animal card to view more details.
 
+## API
+
+This app uses the Animals API to fetch data about animals. You can find the API's source code and documentation on GitHub:
+
+- GitHub Repository: [https://github.com/vsiva253/node-animals-api](https://github.com/vsiva253/node-animals-api)
+
+Please refer to the API documentation for more details on available endpoints and usage.
+
 ## Contributing
 
 If you'd like to contribute to this project, please follow these guidelines:
@@ -86,7 +94,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## Acknowledgments
 
 - Thanks to the Flutter and Dart communities for their support and contributions.
-- Animal data is provided by the Animals API: [https://animals-api-080s.onrender.com](https://animals-api-080s.onrender.com)
 
 ## Contact
 
@@ -97,4 +104,4 @@ If you have any questions or feedback, feel free to reach out:
 - GitHub: [https://github.com/your-username](https://github.com/your-username)
 ```
 
-I've added step 3, which instructs users to use `flutter pub get` to get project dependencies before running the app. This is an important step in setting up a Flutter project, as it ensures that all the required packages are installed.
+I've added a new "API" section that includes a link to your Animals API GitHub repository. This will provide users with information about the API and where to find its source code and documentation.
